@@ -1,22 +1,27 @@
 package mod.grimmauld.windowlogging;
 
-import net.minecraft.block.*;
-import net.minecraft.client.renderer.BlockModelShapes;
-import net.minecraft.client.renderer.RenderTypeLookup;
-import net.minecraft.client.renderer.model.IBakedModel;
-import net.minecraft.client.renderer.model.ModelResourceLocation;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.state.BooleanProperty;
-import net.minecraft.state.properties.BlockStateProperties;
-import net.minecraft.state.properties.SlabType;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.tileentity.TileEntityType;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.SoundCategory;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.block.BlockModelShaper;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.CrossCollisionBlock;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.WallBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ModelBakeEvent;
@@ -25,7 +30,6 @@ import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
@@ -44,13 +48,13 @@ public class EventListener {
 
 	@OnlyIn(Dist.CLIENT)
 	public static void registerRenderers() {
-		RenderTypeLookup.setRenderLayer(RegistryEntries.WINDOW_IN_A_BLOCK, renderType -> true);
-		ClientRegistry.bindTileEntityRenderer(RegistryEntries.WINDOW_IN_A_BLOCK_TILE_ENTITY, WindowInABlockTileEntityRenderer::new);
+		ItemBlockRenderTypes.setRenderLayer(RegistryEntries.WINDOW_IN_A_BLOCK, renderType -> true);
+		BlockEntityRenderers.register(RegistryEntries.WINDOW_IN_A_BLOCK_TILE_ENTITY, WindowInABlockTileEntityRenderer::new);
 	}
 
 	@OnlyIn(Dist.CLIENT)
 	public static void onModelBake(ModelBakeEvent event) {
-		Map<ResourceLocation, IBakedModel> modelRegistry = event.getModelRegistry();
+		Map<ResourceLocation, BakedModel> modelRegistry = event.getModelRegistry();
 		swapModels(modelRegistry, getAllBlockStateModelLocations(RegistryEntries.WINDOW_IN_A_BLOCK), RegistryEntries.WINDOW_IN_A_BLOCK::createModel);
 	}
 
@@ -58,7 +62,7 @@ public class EventListener {
 	protected static List<ModelResourceLocation> getAllBlockStateModelLocations(Block block) {
 		List<ModelResourceLocation> models = new ArrayList<>();
 		block.getStateDefinition().getPossibleStates().forEach(state -> {
-			ModelResourceLocation rl = getBlockModelLocation(block, BlockModelShapes.statePropertiesToString(state.getValues()));
+			ModelResourceLocation rl = getBlockModelLocation(block, BlockModelShaper.statePropertiesToString(state.getValues()));
 			if (rl != null)
 				models.add(rl);
 		});
@@ -75,14 +79,14 @@ public class EventListener {
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	protected static <T extends IBakedModel> void swapModels(Map<ResourceLocation, IBakedModel> modelRegistry,
-															 ModelResourceLocation location, Function<IBakedModel, T> factory) {
+	protected static <T extends BakedModel> void swapModels(Map<ResourceLocation, BakedModel> modelRegistry,
+															ModelResourceLocation location, Function<BakedModel, T> factory) {
 		modelRegistry.put(location, factory.apply(modelRegistry.get(location)));
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	protected static <T extends IBakedModel> void swapModels(Map<ResourceLocation, IBakedModel> modelRegistry,
-															 List<ModelResourceLocation> locations, Function<IBakedModel, T> factory) {
+	protected static <T extends BakedModel> void swapModels(Map<ResourceLocation, BakedModel> modelRegistry,
+															List<ModelResourceLocation> locations, Function<BakedModel, T> factory) {
 		locations.forEach(location -> swapModels(modelRegistry, location, factory));
 	}
 
@@ -98,16 +102,15 @@ public class EventListener {
 		ItemStack stack = event.getItemStack();
 		if (stack.isEmpty())
 			return;
-		if (!(stack.getItem() instanceof BlockItem))
+		if (!(stack.getItem() instanceof BlockItem item))
 			return;
-		BlockItem item = (BlockItem) stack.getItem();
 		Block block = item.getBlock();
-		if (!block.getTags().contains(Windowlogging.WindowBlockTagLocation) || !(block instanceof FourWayBlock)) {
+		if (!block.getTags().contains(Windowlogging.WindowBlockTagLocation) || !(block instanceof CrossCollisionBlock)) {
 			return;
 		}
 
 		BlockPos pos = event.getPos();
-		World world = event.getWorld();
+		Level world = event.getWorld();
 		BlockState blockState = world.getBlockState(pos);
 		if (!blockState.getBlock().getTags().contains(Windowlogging.WindowableBlockTagLocation))
 			return;
@@ -117,22 +120,21 @@ public class EventListener {
 			return;
 
 		BlockState defaultState = RegistryEntries.WINDOW_IN_A_BLOCK.defaultBlockState();
-		CompoundNBT partialBlockTileData = new CompoundNBT();
-		TileEntity currentTE = world.getBlockEntity(pos);
+		CompoundTag partialBlockTileData = new CompoundTag();
+		BlockEntity currentTE = world.getBlockEntity(pos);
 		if (currentTE != null)
 			partialBlockTileData = currentTE.serializeNBT();
 		world.setBlockAndUpdate(pos, defaultState);
-		TileEntity te = world.getBlockEntity(pos);
-		if (te instanceof WindowInABlockTileEntity) {
-			WindowInABlockTileEntity wte = (WindowInABlockTileEntity) te;
+		BlockEntity te = world.getBlockEntity(pos);
+		if (te instanceof WindowInABlockTileEntity wte) {
 			wte.setWindowBlock(item.getBlock().defaultBlockState());
 			wte.updateWindowConnections();
 			SoundType soundtype = wte.getWindowBlock().getSoundType(world, pos, event.getPlayer());
-			world.playSound(null, pos, soundtype.getPlaceSound(), SoundCategory.BLOCKS, (soundtype.getVolume() + 1.0F) / 2.0F, soundtype.getPitch() * 0.8F);
+			world.playSound(null, pos, soundtype.getPlaceSound(), SoundSource.BLOCKS, (soundtype.getVolume() + 1.0F) / 2.0F, soundtype.getPitch() * 0.8F);
 
-			if (blockState.getBlock() instanceof FourWayBlock) {
-				for (BooleanProperty side : Arrays.asList(FourWayBlock.EAST, FourWayBlock.NORTH, FourWayBlock.SOUTH,
-					FourWayBlock.WEST))
+			if (blockState.getBlock() instanceof CrossCollisionBlock) {
+				for (BooleanProperty side : Arrays.asList(CrossCollisionBlock.EAST, CrossCollisionBlock.NORTH, CrossCollisionBlock.SOUTH,
+					CrossCollisionBlock.WEST))
 					blockState = blockState.setValue(side, false);
 			}
 			if (blockState.getBlock() instanceof WallBlock)
@@ -162,9 +164,9 @@ public class EventListener {
 		}
 
 		@SubscribeEvent
-		public static void registerTEs(final RegistryEvent.Register<TileEntityType<?>> event) {
+		public static void registerTEs(final RegistryEvent.Register<BlockEntityType<?>> event) {
 			Windowlogging.LOGGER.debug("TEs registering");
-			event.getRegistry().register(TileEntityType.Builder.of(WindowInABlockTileEntity::new, RegistryEntries.WINDOW_IN_A_BLOCK)
+			event.getRegistry().register(BlockEntityType.Builder.of(WindowInABlockTileEntity::new, RegistryEntries.WINDOW_IN_A_BLOCK)
 				.build(null).setRegistryName("window_in_a_block"));
 		}
 

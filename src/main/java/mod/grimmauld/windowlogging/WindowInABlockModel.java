@@ -1,29 +1,30 @@
 package mod.grimmauld.windowlogging;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BlockRendererDispatcher;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.RenderTypeLookup;
-import net.minecraft.client.renderer.model.BakedQuad;
-import net.minecraft.client.renderer.model.IBakedModel;
+import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.tags.BlockTags;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.Direction;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.vector.Vector3i;
-import net.minecraft.world.IBlockReader;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.client.MinecraftForgeClient;
 import net.minecraftforge.client.model.BakedModelWrapper;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import net.minecraftforge.client.model.data.IModelData;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
@@ -34,15 +35,15 @@ import static mod.grimmauld.windowlogging.WindowInABlockTileEntity.*;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class WindowInABlockModel extends BakedModelWrapper<IBakedModel> {
+public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 
-	public WindowInABlockModel(IBakedModel original) {
+	public WindowInABlockModel(BakedModel original) {
 		super(original);
 	}
 
 	private static void fightZfighting(BakedQuad q) {
 		int[] data = q.getVertices();
-		Vector3i vec = q.getDirection().getNormal();
+		Vec3i vec = q.getDirection().getNormal();
 		int dirX = vec.getX();
 		int dirY = vec.getY();
 		int dirZ = vec.getZ();
@@ -61,18 +62,19 @@ public class WindowInABlockModel extends BakedModelWrapper<IBakedModel> {
 		}
 	}
 
-	private static boolean hasSolidSide(BlockState state, IBlockReader worldIn, BlockPos pos, Direction side) {
-		return !state.getBlock().is(BlockTags.LEAVES) && Block.isFaceFull(state.getBlockSupportShape(worldIn, pos), side);
+	private static boolean hasSolidSide(BlockState state, BlockGetter worldIn, BlockPos pos, Direction side) {
+		return !state.is(BlockTags.LEAVES) && Block.isFaceFull(state.getBlockSupportShape(worldIn, pos), side);
 	}
 
 	@Override
+	@Nonnull
 	public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, Random rand, IModelData data) {
-		BlockRendererDispatcher dispatcher = Minecraft.getInstance().getBlockRenderer();
+		BlockRenderDispatcher dispatcher = Minecraft.getInstance().getBlockRenderer();
 		BlockState partialState = data.getData(PARTIAL_BLOCK);
 		BlockState windowState = data.getData(WINDOW_BLOCK);
 		BlockPos position = data.getData(POSITION);
-		TileEntity partialTE = data.getData(PARTIAL_TE);
-		ClientWorld world = Minecraft.getInstance().level;
+		BlockEntity partialTE = data.getData(PARTIAL_TE);
+		ClientLevel world = Minecraft.getInstance().level;
 		List<BakedQuad> quads = new ArrayList<>();
 		if (world == null || position == null)
 			return quads;
@@ -80,14 +82,14 @@ public class WindowInABlockModel extends BakedModelWrapper<IBakedModel> {
 		if (partialState == null || windowState == null)
 			return dispatcher.getBlockModel(Blocks.DIRT.defaultBlockState()).getQuads(state, side, rand, data);
 		RenderType renderType = MinecraftForgeClient.getRenderLayer();
-		if (RenderTypeLookup.canRenderInLayer(partialState, renderType) && partialState.getRenderShape() == BlockRenderType.MODEL) {
-			IBakedModel partialModel = dispatcher.getBlockModel(partialState);
+		if (ItemBlockRenderTypes.canRenderInLayer(partialState, renderType) && partialState.getRenderShape() == RenderShape.MODEL) {
+			BakedModel partialModel = dispatcher.getBlockModel(partialState);
 			IModelData modelData = partialModel.getModelData(world, position, partialState,
 				partialTE == null ? EmptyModelData.INSTANCE : partialTE.getModelData());
 			quads.addAll(partialModel.getQuads(partialState, side, rand, modelData));
 		}
-		if (RenderTypeLookup.canRenderInLayer(windowState, renderType)) {
-			IBakedModel windowModel = dispatcher.getBlockModel(windowState);
+		if (ItemBlockRenderTypes.canRenderInLayer(windowState, renderType)) {
+			BakedModel windowModel = dispatcher.getBlockModel(windowState);
 			IModelData glassModelData = windowModel.getModelData(world, position, windowState, EmptyModelData.INSTANCE);
 			dispatcher.getBlockModel(windowState).getQuads(windowState, side, rand, glassModelData)
 				.forEach(bakedQuad -> {
@@ -101,13 +103,13 @@ public class WindowInABlockModel extends BakedModelWrapper<IBakedModel> {
 	}
 
 	@Override
-	public TextureAtlasSprite getParticleTexture(IModelData data) {
-		BlockRendererDispatcher dispatcher = Minecraft.getInstance().getBlockRenderer();
+	public TextureAtlasSprite getParticleIcon(IModelData data) {
+		BlockRenderDispatcher dispatcher = Minecraft.getInstance().getBlockRenderer();
 		BlockState partialState = data.getData(PARTIAL_BLOCK);
-		TileEntity partialTE = data.getData(PARTIAL_TE);
+		BlockEntity partialTE = data.getData(PARTIAL_TE);
 		if (partialState == null)
-			return super.getParticleTexture(data);
-		return dispatcher.getBlockModel(partialState).getParticleTexture(partialTE == null ? data : partialTE.getModelData());
+			return super.getParticleIcon(data);
+		return dispatcher.getBlockModel(partialState).getParticleIcon(partialTE == null ? data : partialTE.getModelData());
 	}
 
 	@Override

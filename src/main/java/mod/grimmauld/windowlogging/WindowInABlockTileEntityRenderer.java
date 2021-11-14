@@ -1,32 +1,34 @@
 package mod.grimmauld.windowlogging;
 
-import com.mojang.blaze3d.matrix.MatrixStack;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
-import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
-import net.minecraft.tileentity.TileEntity;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class WindowInABlockTileEntityRenderer extends TileEntityRenderer<WindowInABlockTileEntity> {
-	public WindowInABlockTileEntityRenderer(TileEntityRendererDispatcher rendererDispatcherIn) {
-		super(rendererDispatcherIn);
-	}
+@OnlyIn(Dist.CLIENT)
+public record WindowInABlockTileEntityRenderer(
+	BlockEntityRendererProvider.Context context) implements BlockEntityRenderer<WindowInABlockTileEntity> {
 
 	@Override
-	public void render(WindowInABlockTileEntity tileEntityIn, float partialTicks, MatrixStack matrixStackIn, IRenderTypeBuffer bufferIn, int combinedLightIn, int combinedOverlayIn) {
-		TileEntity partialTE = tileEntityIn.getPartialBlockTileEntityIfPresent();
+	public void render(WindowInABlockTileEntity tileEntityIn, float partialTicks, PoseStack matrixStackIn, MultiBufferSource bufferIn, int combinedLightIn, int combinedOverlayIn) {
+		BlockEntity partialTE = tileEntityIn.getPartialBlockTileEntityIfPresent();
 		if (partialTE == null)
 			return;
-		TileEntityRenderer<TileEntity> renderer = TileEntityRendererDispatcher.instance.getRenderer(partialTE);
+		BlockEntityRenderer<BlockEntity> renderer = context.getBlockEntityRenderDispatcher().getRenderer(partialTE);
 		if (renderer == null)
 			return;
 		try {
 			renderer.render(partialTE, partialTicks, matrixStackIn, bufferIn, combinedLightIn, combinedOverlayIn);
 		} catch (Exception ignored) {
+			// ignored
 		}
 	}
 }

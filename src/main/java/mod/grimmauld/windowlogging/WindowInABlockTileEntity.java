@@ -1,17 +1,18 @@
 package mod.grimmauld.windowlogging;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.NBTUtil;
-import net.minecraft.network.NetworkManager;
-import net.minecraft.network.play.server.SUpdateTileEntityPacket;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.Direction;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.model.data.IModelData;
@@ -19,35 +20,36 @@ import net.minecraftforge.client.model.data.ModelDataMap;
 import net.minecraftforge.client.model.data.ModelProperty;
 import net.minecraftforge.fml.DistExecutor;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public class WindowInABlockTileEntity extends TileEntity {
+public class WindowInABlockTileEntity extends BlockEntity {
 
 	public static final ModelProperty<BlockState> PARTIAL_BLOCK = new ModelProperty<>();
 	public static final ModelProperty<BlockState> WINDOW_BLOCK = new ModelProperty<>();
 	public static final ModelProperty<BlockPos> POSITION = new ModelProperty<>();
-	public static final ModelProperty<TileEntity> PARTIAL_TE = new ModelProperty<>();
+	public static final ModelProperty<BlockEntity> PARTIAL_TE = new ModelProperty<>();
 	private BlockState partialBlock = Blocks.AIR.defaultBlockState();
 	private BlockState windowBlock = Blocks.AIR.defaultBlockState();
-	private CompoundNBT partialBlockTileData;
-	private TileEntity partialBlockTileEntity = null;
+	private CompoundTag partialBlockTileData;
+	private BlockEntity partialBlockTileEntity = null;
 	@OnlyIn(Dist.CLIENT)
 	private IModelData modelData;
 
-	public WindowInABlockTileEntity() {
-		super(RegistryEntries.WINDOW_IN_A_BLOCK_TILE_ENTITY);
-		setPartialBlockTileData(new CompoundNBT());
+	public WindowInABlockTileEntity(BlockPos pos, BlockState blockState) {
+		super(RegistryEntries.WINDOW_IN_A_BLOCK_TILE_ENTITY, pos, blockState);
+		setPartialBlockTileData(new CompoundTag());
 		DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::initDataMap);
 	}
 
-	public CompoundNBT getPartialBlockTileData() {
+	public CompoundTag getPartialBlockTileData() {
 		return partialBlockTileData;
 	}
 
-	public void setPartialBlockTileData(CompoundNBT partialBlockTileData) {
+	public void setPartialBlockTileData(CompoundTag partialBlockTileData) {
 		this.partialBlockTileData = partialBlockTileData;
 	}
 
@@ -59,17 +61,17 @@ public class WindowInABlockTileEntity extends TileEntity {
 
 
 	@Override
-	public void load(BlockState state, CompoundNBT compound) {
-		partialBlock = NBTUtil.readBlockState(compound.getCompound("PartialBlock"));
-		windowBlock = NBTUtil.readBlockState(compound.getCompound("WindowBlock"));
+	public void load(CompoundTag compound) {
+		partialBlock = NbtUtils.readBlockState(compound.getCompound("PartialBlock"));
+		windowBlock = NbtUtils.readBlockState(compound.getCompound("WindowBlock"));
 		setPartialBlockTileData(compound.getCompound("PartialData"));
-		super.load(state, compound);
+		super.load(compound);
 	}
 
 	@Override
-	public CompoundNBT save(CompoundNBT compound) {
-		compound.put("PartialBlock", NBTUtil.writeBlockState(getPartialBlock()));
-		compound.put("WindowBlock", NBTUtil.writeBlockState(getWindowBlock()));
+	public CompoundTag save(CompoundTag compound) {
+		compound.put("PartialBlock", NbtUtils.writeBlockState(getPartialBlock()));
+		compound.put("WindowBlock", NbtUtils.writeBlockState(getWindowBlock()));
 		compound.put("PartialData", partialBlockTileData);
 		return super.save(compound);
 	}
@@ -88,6 +90,7 @@ public class WindowInABlockTileEntity extends TileEntity {
 
 	@OnlyIn(value = Dist.CLIENT)
 	@Override
+	@Nonnull
 	public IModelData getModelData() {
 		modelData.setData(PARTIAL_BLOCK, partialBlock);
 		modelData.setData(WINDOW_BLOCK, windowBlock);
@@ -113,36 +116,36 @@ public class WindowInABlockTileEntity extends TileEntity {
 	}
 
 	@Override
-	public CompoundNBT getUpdateTag() {
-		return save(new CompoundNBT());
+	public CompoundTag getUpdateTag() {
+		return save(new CompoundTag());
 	}
 
 	@Override
-	public void handleUpdateTag(BlockState state, CompoundNBT tag) {
-		load(state, tag);
+	public void handleUpdateTag(CompoundTag tag) {
+		load(tag);
 	}
 
 	@Override
-	public SUpdateTileEntityPacket getUpdatePacket() {
-		return new SUpdateTileEntityPacket(getBlockPos(), 1, save(new CompoundNBT()));
+	public ClientboundBlockEntityDataPacket getUpdatePacket() {
+		return new ClientboundBlockEntityDataPacket(getBlockPos(), 1, save(new CompoundTag()));
 	}
 
 	@Override
-	public void onDataPacket(NetworkManager net, SUpdateTileEntityPacket pkt) {
-		load(getBlockState(), pkt.getTag());
+	public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
+		load(pkt.getTag());
 	}
 
 	@Nullable
-	public TileEntity getPartialBlockTileEntityIfPresent() {
-		if (!getPartialBlock().hasTileEntity() || level == null)
+	public BlockEntity getPartialBlockTileEntityIfPresent() {
+		if (!(getPartialBlock() instanceof EntityBlock entityBlock) || level == null)
 			return null;
 		if (partialBlockTileEntity == null) {
 			try {
-				partialBlockTileEntity = getPartialBlock().createTileEntity(level);
+				partialBlockTileEntity = entityBlock.newBlockEntity(worldPosition, partialBlock);
 				if (partialBlockTileEntity != null) {
 					partialBlockTileEntity.blockState = getPartialBlock();
 					partialBlockTileEntity.deserializeNBT(partialBlockTileData);
-					partialBlockTileEntity.setLevelAndPosition(level, worldPosition);
+					partialBlockTileEntity.setLevel(level);
 				}
 			} catch (Exception e) {
 				partialBlockTileEntity = null;
@@ -162,7 +165,7 @@ public class WindowInABlockTileEntity extends TileEntity {
 
 	@OnlyIn(Dist.CLIENT)
 	private void requestModelUpdateOnClient() {
-		World world = this.level;
+		Level world = this.level;
 		try {
 			this.level = Minecraft.getInstance().level;
 			super.requestModelDataUpdate();
