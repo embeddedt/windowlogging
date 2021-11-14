@@ -35,6 +35,7 @@ import static mod.grimmauld.windowlogging.WindowInABlockTileEntity.*;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public class WindowInABlockModel extends BakedModelWrapper<IBakedModel> {
+
 	public WindowInABlockModel(IBakedModel original) {
 		super(original);
 	}
@@ -91,8 +92,7 @@ public class WindowInABlockModel extends BakedModelWrapper<IBakedModel> {
 			dispatcher.getBlockModel(windowState).getQuads(windowState, side, rand, glassModelData)
 				.forEach(bakedQuad -> {
 					if (!hasSolidSide(partialState, world, position, bakedQuad.getDirection())) {
-						if (!(windowState.getBlock().equals(Blocks.IRON_BARS) && bakedQuad.getDirection().getAxis().isVertical()))
-							fightZfighting(bakedQuad);
+						fightZfighting(bakedQuad);
 						quads.add(bakedQuad);
 					}
 				});

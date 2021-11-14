@@ -39,9 +39,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-
-import net.minecraft.block.AbstractBlock.Properties;
-
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @SuppressWarnings("deprecation")
@@ -216,7 +213,7 @@ public class WindowInABlockBlock extends PaneBlock {
 
 	@Override
 	public BlockState updateShape(BlockState stateIn, Direction facing, BlockState facingState, IWorld worldIn,
-										  BlockPos currentPos, BlockPos facingPos) {
+								  BlockPos currentPos, BlockPos facingPos) {
 		WindowInABlockTileEntity te = getTileEntity(worldIn, currentPos);
 		if (te == null)
 			return stateIn;
@@ -235,14 +232,14 @@ public class WindowInABlockBlock extends PaneBlock {
 		return stateIn;
 	}
 
-	private BlockState getSurroundingBlockState(IBlockReader reader, BlockPos pos) {
+	public BlockState getSurroundingBlockState(IBlockReader reader, BlockPos pos) {
 		WindowInABlockTileEntity te = getTileEntity(reader, pos);
 		if (te != null)
 			return te.getPartialBlock();
 		return Blocks.AIR.defaultBlockState();
 	}
 
-	private BlockState getWindowBlockState(IBlockReader reader, BlockPos pos) {
+	public BlockState getWindowBlockState(IBlockReader reader, BlockPos pos) {
 		WindowInABlockTileEntity te = getTileEntity(reader, pos);
 		if (te != null)
 			return te.getWindowBlock();
@@ -329,5 +326,16 @@ public class WindowInABlockBlock extends PaneBlock {
 			partialState.getBlock().getLightValue(partialState, world, pos);
 		}
 		return 0;
+	}
+
+	@Nullable
+	@Override
+	public float[] getBeaconColorMultiplier(BlockState state, IWorldReader world, BlockPos pos, BlockPos beaconPos) {
+		WindowInABlockTileEntity te = getTileEntity(world, pos);
+		if (te != null) {
+			BlockState windowState = te.getWindowBlock();
+			return windowState.getBlock().getBeaconColorMultiplier(windowState, world, pos, beaconPos);
+		}
+		return super.getBeaconColorMultiplier(state, world, pos, beaconPos);
 	}
 }

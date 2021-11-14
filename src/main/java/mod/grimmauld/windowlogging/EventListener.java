@@ -20,6 +20,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ModelBakeEvent;
+import net.minecraftforge.client.event.ParticleFactoryRegisterEvent;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.Event;
@@ -100,7 +101,8 @@ public class EventListener {
 		if (!(stack.getItem() instanceof BlockItem))
 			return;
 		BlockItem item = (BlockItem) stack.getItem();
-		if (!item.getBlock().getTags().contains(Windowlogging.WindowBlockTagLocation)) {
+		Block block = item.getBlock();
+		if (!block.getTags().contains(Windowlogging.WindowBlockTagLocation) || !(block instanceof FourWayBlock)) {
 			return;
 		}
 
@@ -164,6 +166,12 @@ public class EventListener {
 			Windowlogging.LOGGER.debug("TEs registering");
 			event.getRegistry().register(TileEntityType.Builder.of(WindowInABlockTileEntity::new, RegistryEntries.WINDOW_IN_A_BLOCK)
 				.build(null).setRegistryName("window_in_a_block"));
+		}
+
+		@OnlyIn(Dist.CLIENT)
+		@SubscribeEvent
+		public static void registerColorProviders(ParticleFactoryRegisterEvent event) {
+			WindowBlockColor.registerFor(RegistryEntries.WINDOW_IN_A_BLOCK);
 		}
 	}
 }

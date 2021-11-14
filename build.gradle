@@ -75,10 +75,13 @@ dependencies {
    // runtimeOnly fg.deobf("com.jozufozu.flywheel:Flywheel:1.16-0.2.3.44")
    // runtimeOnly fg.deobf("com.simibubi.create:Create:mc1.16.5_v0.3.2f+464")
     runtimeOnly fg.deobf("curse.maven:quark-243121:3490981")
+    runtimeOnly fg.deobf("curse.maven:oddities-301051:3088871")
     runtimeOnly fg.deobf("curse.maven:areg-250363:3326041")
     runtimeOnly fg.deobf("curse.maven:blockcarpentry-401658:3147183")
     runtimeOnly fg.deobf("curse.maven:paneintheglass-374529:3432890")
 }
+
+compileJava.options.encoding = 'UTF-8'
 
 jar {
     manifest {
