@@ -1,32 +1,30 @@
+import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 buildscript {
     repositories {
         maven { url = 'https://files.minecraftforge.net/maven' }
-        jcenter()
         mavenCentral()
     }
     dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '3.+', changing: true
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
     }
 }
 
 plugins {
-    id "com.wynprice.cursemaven" version "2.1.5"
+    id 'com.github.gmazzo.buildconfig' version '3.0.1'
 }
-
 apply plugin: 'net.minecraftforge.gradle'
-// Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
 apply plugin: 'eclipse'
-apply plugin: 'maven-publish'
+apply plugin: 'idea'
+
 
 version = "mc${minecraft_version}_v${mod_version}"
 group = "mod.grimmauld.${modid}"
 archivesBaseName = "${modid}"
 
-sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
+java.toolchain.languageVersion = JavaLanguageVersion.of(8) // Mojang ships Java 8 to end users, so your mod should target Java 8.
 println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
-
 minecraft {
-    mappings channel: 'snapshot', version: '20210309-1.16.5'
+    mappings channel: 'official', version: '1.16.5'
     accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
 
     runs {
@@ -34,7 +32,8 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
             property 'forge.logging.console.level', 'debug'
-
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             mods {
                 windowlogging {
                     source sourceSets.main
@@ -46,22 +45,8 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
             property 'forge.logging.console.level', 'debug'
-
-            mods {
-                windowlogging {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        data {
-            workingDirectory project.file('run')
-            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP'
-            property 'forge.logging.console.level', 'debug'
-            property 'fml.earlyprogresswindow', 'false'
-
-            args '--mod', "windowlogging", '--all', '--output', file('src/generated/resources/')
-
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             mods {
                 windowlogging {
                     source sourceSets.main
@@ -75,6 +60,11 @@ repositories {
     maven {
         url = "https://www.cursemaven.com"
     }
+
+    maven {
+        name = "tterrag maven"
+        url = "https://maven.tterrag.com/"
+    }
 }
 
 dependencies {
@@ -82,11 +72,12 @@ dependencies {
 
     // debug
     runtimeOnly fg.deobf("curse.maven:doubleslabs-350179:3061145")
-    runtimeOnly fg.deobf("curse.maven:create-328085:3167531")
-    // runtimeOnly fg.deobf("curse.maven:quark-243121:3221260")
-    // runtimeOnly fg.deobf("curse.maven:areg-250363:3128555")
+   // runtimeOnly fg.deobf("com.jozufozu.flywheel:Flywheel:1.16-0.2.3.44")
+   // runtimeOnly fg.deobf("com.simibubi.create:Create:mc1.16.5_v0.3.2f+464")
+    runtimeOnly fg.deobf("curse.maven:quark-243121:3490981")
+    runtimeOnly fg.deobf("curse.maven:areg-250363:3326041")
     runtimeOnly fg.deobf("curse.maven:blockcarpentry-401658:3147183")
-    runtimeOnly fg.deobf("curse.maven:paneintheglass-374529:3088909")
+    runtimeOnly fg.deobf("curse.maven:paneintheglass-374529:3432890")
 }
 
 jar {
@@ -104,3 +95,62 @@ jar {
 }
 
 jar.finalizedBy('reobfJar')
+
+def getGitHash = { ->
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        commandLine 'git', 'rev-parse', '--short', 'HEAD'
+        standardOutput = stdout
+    }
+    return stdout.toString().trim()
+}
+
+def hasUnstaged = { ->
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        commandLine 'git', 'status', '--porcelain'
+        standardOutput = stdout
+    }
+    def result = stdout.toString().replaceAll("M gradlew", "").trim()
+    if (!result.isEmpty())
+        println("Found stageable results:\n${result}\n")
+    return !result.isEmpty()
+}
+
+def hasCommandInstalled = { cmd ->
+    if (!DefaultNativePlatform.currentOperatingSystem.isWindows())
+        return true
+    def stdout = new ByteArrayOutputStream()
+    def stderr = new ByteArrayOutputStream()
+    return exec {
+        ignoreExitValue = true
+        standardOutput = stdout
+        errorOutput = stderr
+        commandLine "where", cmd
+    }.getExitValue() == 0 && stdout.toString().trim().contains(cmd)
+}
+
+def getGitInfo = { ->
+    if (!hasCommandInstalled("git")) {
+        println("No git install found in PATH")
+        return "NOGIT"
+    }
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        standardOutput = stdout
+        commandLine "git", "--version"
+    }
+    println(stdout.toString().trim())
+    return "${getGitHash()}" + (hasUnstaged() ? "-modified" : "")
+}
+
+buildConfig {
+    buildConfigField 'String', 'MODID', "\"${modid}\""
+    buildConfigField 'String', 'VERSION', "\"${project.version}\""
+    def gitstage = getGitInfo()
+    println("Using git stage ${gitstage}")
+    buildConfigField "String", "GITHASH", "\"${gitstage}\""
+
+    version = project.version
+    packageName = project.group
+}

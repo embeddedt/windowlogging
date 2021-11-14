@@ -20,7 +20,6 @@ import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ModelBakeEvent;
-import net.minecraftforge.common.Tags;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.Event;
@@ -57,8 +56,8 @@ public class EventListener {
 	@OnlyIn(Dist.CLIENT)
 	protected static List<ModelResourceLocation> getAllBlockStateModelLocations(Block block) {
 		List<ModelResourceLocation> models = new ArrayList<>();
-		block.getStateContainer().getValidStates().forEach(state -> {
-			ModelResourceLocation rl = getBlockModelLocation(block, BlockModelShapes.getPropertyMapString(state.getValues()));
+		block.getStateDefinition().getPossibleStates().forEach(state -> {
+			ModelResourceLocation rl = getBlockModelLocation(block, BlockModelShapes.statePropertiesToString(state.getValues()));
 			if (rl != null)
 				models.add(rl);
 		});
@@ -90,9 +89,9 @@ public class EventListener {
 	public void rightClickPartialBlockWithPaneMakesItWindowLogged(PlayerInteractEvent.RightClickBlock event) {
 		if (event.getUseItem() == Event.Result.DENY)
 			return;
-		if (event.getEntityLiving().isSneaking())
+		if (event.getEntityLiving().isShiftKeyDown())
 			return;
-		if (!event.getPlayer().isAllowEdit())
+		if (!event.getPlayer().mayBuild())
 			return;
 
 		ItemStack stack = event.getItemStack();
@@ -112,19 +111,19 @@ public class EventListener {
 			return;
 		if (blockState.getBlock() instanceof WindowInABlockBlock)
 			return;
-		if (blockState.func_235903_d_(BlockStateProperties.SLAB_TYPE).orElse(null) == SlabType.DOUBLE)
+		if (blockState.getOptionalValue(BlockStateProperties.SLAB_TYPE).orElse(null) == SlabType.DOUBLE)
 			return;
 
-		BlockState defaultState = RegistryEntries.WINDOW_IN_A_BLOCK.getDefaultState();
+		BlockState defaultState = RegistryEntries.WINDOW_IN_A_BLOCK.defaultBlockState();
 		CompoundNBT partialBlockTileData = new CompoundNBT();
-		TileEntity currentTE = world.getTileEntity(pos);
+		TileEntity currentTE = world.getBlockEntity(pos);
 		if (currentTE != null)
 			partialBlockTileData = currentTE.serializeNBT();
-		world.setBlockState(pos, defaultState);
-		TileEntity te = world.getTileEntity(pos);
+		world.setBlockAndUpdate(pos, defaultState);
+		TileEntity te = world.getBlockEntity(pos);
 		if (te instanceof WindowInABlockTileEntity) {
 			WindowInABlockTileEntity wte = (WindowInABlockTileEntity) te;
-			wte.setWindowBlock(item.getBlock().getDefaultState());
+			wte.setWindowBlock(item.getBlock().defaultBlockState());
 			wte.updateWindowConnections();
 			SoundType soundtype = wte.getWindowBlock().getSoundType(world, pos, event.getPlayer());
 			world.playSound(null, pos, soundtype.getPlaceSound(), SoundCategory.BLOCKS, (soundtype.getVolume() + 1.0F) / 2.0F, soundtype.getPitch() * 0.8F);
@@ -132,10 +131,10 @@ public class EventListener {
 			if (blockState.getBlock() instanceof FourWayBlock) {
 				for (BooleanProperty side : Arrays.asList(FourWayBlock.EAST, FourWayBlock.NORTH, FourWayBlock.SOUTH,
 					FourWayBlock.WEST))
-					blockState = blockState.with(side, false);
+					blockState = blockState.setValue(side, false);
 			}
 			if (blockState.getBlock() instanceof WallBlock)
-				blockState = blockState.with(WallBlock.UP, true);
+				blockState = blockState.setValue(WallBlock.UP, true);
 
 			wte.setPartialBlock(blockState);
 			wte.setPartialBlockTileData(partialBlockTileData);
@@ -143,7 +142,7 @@ public class EventListener {
 
 			if (!event.getPlayer().isCreative())
 				stack.shrink(1);
-			event.getPlayer().swingArm(event.getHand());
+			event.getPlayer().swing(event.getHand());
 		}
 
 		event.setCanceled(true);
@@ -163,8 +162,8 @@ public class EventListener {
 		@SubscribeEvent
 		public static void registerTEs(final RegistryEvent.Register<TileEntityType<?>> event) {
 			Windowlogging.LOGGER.debug("TEs registering");
-			event.getRegistry().register(TileEntityType.Builder.create(WindowInABlockTileEntity::new, RegistryEntries.WINDOW_IN_A_BLOCK)
-                .build(null).setRegistryName("window_in_a_block"));
+			event.getRegistry().register(TileEntityType.Builder.of(WindowInABlockTileEntity::new, RegistryEntries.WINDOW_IN_A_BLOCK)
+				.build(null).setRegistryName("window_in_a_block"));
 		}
 	}
 }

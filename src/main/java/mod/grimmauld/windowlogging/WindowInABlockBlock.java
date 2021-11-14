@@ -40,27 +40,29 @@ import java.util.Collections;
 import java.util.List;
 
 
+import net.minecraft.block.AbstractBlock.Properties;
+
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @SuppressWarnings("deprecation")
 public class WindowInABlockBlock extends PaneBlock {
 
 	public WindowInABlockBlock() {
-		super(Properties.create(Material.ROCK).notSolid());
+		super(Properties.of(Material.STONE).noOcclusion());
 	}
 
 	private static void addBlockHitEffects(ParticleManager manager, BlockPos pos, BlockRayTraceResult target, BlockState blockstate, ClientWorld world) {
 		VoxelShape shape = blockstate.getShape(world, pos);
 		if (shape.isEmpty())
 			return;
-		Direction side = target.getFace();
+		Direction side = target.getDirection();
 		int i = pos.getX();
 		int j = pos.getY();
 		int k = pos.getZ();
-		AxisAlignedBB axisalignedbb = shape.getBoundingBox();
-		double d0 = (double) i + manager.rand.nextDouble() * (axisalignedbb.maxX - axisalignedbb.minX - (double) 0.2F) + (double) 0.1F + axisalignedbb.minX;
-		double d1 = (double) j + manager.rand.nextDouble() * (axisalignedbb.maxY - axisalignedbb.minY - (double) 0.2F) + (double) 0.1F + axisalignedbb.minY;
-		double d2 = (double) k + manager.rand.nextDouble() * (axisalignedbb.maxZ - axisalignedbb.minZ - (double) 0.2F) + (double) 0.1F + axisalignedbb.minZ;
+		AxisAlignedBB axisalignedbb = shape.bounds();
+		double d0 = (double) i + manager.random.nextDouble() * (axisalignedbb.maxX - axisalignedbb.minX - (double) 0.2F) + (double) 0.1F + axisalignedbb.minX;
+		double d1 = (double) j + manager.random.nextDouble() * (axisalignedbb.maxY - axisalignedbb.minY - (double) 0.2F) + (double) 0.1F + axisalignedbb.minY;
+		double d2 = (double) k + manager.random.nextDouble() * (axisalignedbb.maxZ - axisalignedbb.minZ - (double) 0.2F) + (double) 0.1F + axisalignedbb.minZ;
 		if (side == Direction.DOWN) {
 			d1 = (double) j + axisalignedbb.minY - (double) 0.1F;
 		}
@@ -85,7 +87,7 @@ public class WindowInABlockBlock extends PaneBlock {
 			d0 = (double) i + axisalignedbb.maxX + (double) 0.1F;
 		}
 
-		manager.addEffect((new DiggingParticle(world, d0, d1, d2, 0.0D, 0.0D, 0.0D, blockstate)).setBlockPos(pos).multiplyVelocity(0.2F).multiplyParticleScaleBy(0.6F));
+		manager.add((new DiggingParticle(world, d0, d1, d2, 0.0D, 0.0D, 0.0D, blockstate)).init(pos).setPower(0.2F).scale(0.6F));
 	}
 
 	@Override
@@ -108,34 +110,34 @@ public class WindowInABlockBlock extends PaneBlock {
 		ModifiableAttributeInstance reachDistanceAttribute = player.getAttribute(ForgeMod.REACH_DISTANCE.get());
 		if (reachDistanceAttribute == null)
 			return super.removedByPlayer(state, world, pos, null, willHarvest, fluid);
-		Vector3d end = start.add(player.getLookVec().scale(reachDistanceAttribute.getValue()));
+		Vector3d end = start.add(player.getLookAngle().scale(reachDistanceAttribute.getValue()));
 		BlockRayTraceResult target =
-			world.rayTraceBlocks(new RayTraceContext(start, end, BlockMode.OUTLINE, FluidMode.NONE, player));
+			world.clip(new RayTraceContext(start, end, BlockMode.OUTLINE, FluidMode.NONE, player));
 		WindowInABlockTileEntity tileEntity = getTileEntity(world, pos);
 		if (tileEntity == null)
 			return super.removedByPlayer(state, world, pos, player, willHarvest, fluid);
 		BlockState windowBlock = tileEntity.getWindowBlock();
 		CompoundNBT partialBlockTileData = tileEntity.getPartialBlockTileData();
-		for (AxisAlignedBB bb : windowBlock.getShape(world, pos).toBoundingBoxList()) {
-			if (bb.grow(.1d).contains(target.getHitVec().subtract(pos.getX(), pos.getY(), pos.getZ()))) {
-				windowBlock.getBlock().onBlockHarvested(world, pos, windowBlock, player);
+		for (AxisAlignedBB bb : windowBlock.getShape(world, pos).toAabbs()) {
+			if (bb.inflate(.1d).contains(target.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ()))) {
+				windowBlock.getBlock().playerWillDestroy(world, pos, windowBlock, player);
 				if (!player.isCreative())
-					Block.spawnDrops(windowBlock, world, pos, null, player, player.getHeldItemMainhand());
+					Block.dropResources(windowBlock, world, pos, null, player, player.getMainHandItem());
 				BlockState partialBlock = tileEntity.getPartialBlock();
-				world.setBlockState(pos, partialBlock);
+				world.setBlockAndUpdate(pos, partialBlock);
 				for (Direction d : Direction.values()) {
-					BlockPos offset = pos.offset(d);
+					BlockPos offset = pos.relative(d);
 					BlockState otherState = world.getBlockState(offset);
-					partialBlock = partialBlock.updatePostPlacement(d, otherState, world, pos, offset);
-					world.notifyBlockUpdate(offset, otherState, otherState, 2);
+					partialBlock = partialBlock.updateShape(d, otherState, world, pos, offset);
+					world.sendBlockUpdated(offset, otherState, otherState, 2);
 				}
 				if (partialBlock != world.getBlockState(pos))
-					world.setBlockState(pos, partialBlock);
+					world.setBlockAndUpdate(pos, partialBlock);
 				if (world.getBlockState(pos).hasTileEntity()) {
-					TileEntity te = world.getTileEntity(pos);
+					TileEntity te = world.getBlockEntity(pos);
 					if (te != null) {
 						te.deserializeNBT(partialBlockTileData);
-						te.markDirty();
+						te.setChanged();
 					}
 				}
 				return false;
@@ -146,7 +148,7 @@ public class WindowInABlockBlock extends PaneBlock {
 	}
 
 	@Override
-	public boolean isReplaceable(BlockState state, BlockItemUseContext useContext) {
+	public boolean canBeReplaced(BlockState state, BlockItemUseContext useContext) {
 		return false;
 	}
 
@@ -162,8 +164,8 @@ public class WindowInABlockBlock extends PaneBlock {
 	}
 
 	@Override
-	public float getPlayerRelativeBlockHardness(BlockState state, PlayerEntity player, IBlockReader worldIn, BlockPos pos) {
-		return getSurroundingBlockState(worldIn, pos).getPlayerRelativeBlockHardness(player, worldIn, pos);
+	public float getDestroyProgress(BlockState state, PlayerEntity player, IBlockReader worldIn, BlockPos pos) {
+		return getSurroundingBlockState(worldIn, pos).getDestroyProgress(player, worldIn, pos);
 	}
 
 	@Override
@@ -175,8 +177,8 @@ public class WindowInABlockBlock extends PaneBlock {
 	public ItemStack getPickBlock(BlockState state, RayTraceResult target, IBlockReader world, BlockPos pos,
 								  PlayerEntity player) {
 		BlockState window = getWindowBlockState(world, pos);
-		for (AxisAlignedBB bb : window.getShape(world, pos).toBoundingBoxList()) {
-			if (bb.grow(.1d).contains(target.getHitVec().subtract(pos.getX(), pos.getY(), pos.getZ())))
+		for (AxisAlignedBB bb : window.getShape(world, pos).toAabbs()) {
+			if (bb.inflate(.1d).contains(target.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ())))
 				return window.getPickBlock(target, world, pos, player);
 		}
 		BlockState surrounding = getSurroundingBlockState(world, pos);
@@ -185,7 +187,7 @@ public class WindowInABlockBlock extends PaneBlock {
 
 	@Override
 	public List<ItemStack> getDrops(BlockState state, LootContext.Builder builder) {
-		TileEntity tileentity = builder.get(LootParameters.BLOCK_ENTITY);
+		TileEntity tileentity = builder.getOptionalParameter(LootParameters.BLOCK_ENTITY);
 		if (!(tileentity instanceof WindowInABlockTileEntity))
 			return Collections.emptyList();
 
@@ -213,19 +215,19 @@ public class WindowInABlockBlock extends PaneBlock {
 	}
 
 	@Override
-	public BlockState updatePostPlacement(BlockState stateIn, Direction facing, BlockState facingState, IWorld worldIn,
+	public BlockState updateShape(BlockState stateIn, Direction facing, BlockState facingState, IWorld worldIn,
 										  BlockPos currentPos, BlockPos facingPos) {
 		WindowInABlockTileEntity te = getTileEntity(worldIn, currentPos);
 		if (te == null)
 			return stateIn;
 		te.setWindowBlock(
-			te.getWindowBlock().updatePostPlacement(facing, facingState, worldIn, currentPos, facingPos));
+			te.getWindowBlock().updateShape(facing, facingState, worldIn, currentPos, facingPos));
 		BlockState blockState =
-			te.getPartialBlock().updatePostPlacement(facing, facingState, worldIn, currentPos, facingPos);
+			te.getPartialBlock().updateShape(facing, facingState, worldIn, currentPos, facingPos);
 		if (blockState.getBlock() instanceof FourWayBlock) {
 			for (BooleanProperty side : Arrays.asList(FourWayBlock.EAST, FourWayBlock.NORTH, FourWayBlock.SOUTH,
 				FourWayBlock.WEST))
-				blockState = blockState.with(side, false);
+				blockState = blockState.setValue(side, false);
 			te.setPartialBlock(blockState);
 		}
 		te.requestModelDataUpdate();
@@ -237,25 +239,25 @@ public class WindowInABlockBlock extends PaneBlock {
 		WindowInABlockTileEntity te = getTileEntity(reader, pos);
 		if (te != null)
 			return te.getPartialBlock();
-		return Blocks.AIR.getDefaultState();
+		return Blocks.AIR.defaultBlockState();
 	}
 
 	private BlockState getWindowBlockState(IBlockReader reader, BlockPos pos) {
 		WindowInABlockTileEntity te = getTileEntity(reader, pos);
 		if (te != null)
 			return te.getWindowBlock();
-		return Blocks.AIR.getDefaultState();
+		return Blocks.AIR.defaultBlockState();
 	}
 
 	@Override
 	@OnlyIn(Dist.CLIENT)
-	public boolean isSideInvisible(BlockState state, BlockState adjacentBlockState, Direction side) {
+	public boolean skipRendering(BlockState state, BlockState adjacentBlockState, Direction side) {
 		return false;
 	}
 
 	@Nullable
 	private WindowInABlockTileEntity getTileEntity(IBlockReader world, BlockPos pos) {
-		TileEntity te = world.getTileEntity(pos);
+		TileEntity te = world.getBlockEntity(pos);
 		if (te instanceof WindowInABlockTileEntity)
 			return (WindowInABlockTileEntity) te;
 		return null;
@@ -293,7 +295,7 @@ public class WindowInABlockBlock extends PaneBlock {
 		WindowInABlockTileEntity te = getTileEntity(world, pos);
 		if (te != null) {
 			te.getWindowBlock().addDestroyEffects(world, pos, manager);
-			manager.addBlockDestroyEffects(pos, te.getWindowBlock());
+			manager.destroy(pos, te.getWindowBlock());
 			return te.getPartialBlock().addDestroyEffects(world, pos, manager);
 		}
 		return false;
@@ -304,7 +306,7 @@ public class WindowInABlockBlock extends PaneBlock {
 	public boolean addHitEffects(BlockState state, World world, RayTraceResult target, ParticleManager manager) {
 		if (target.getType() != RayTraceResult.Type.BLOCK || !(target instanceof BlockRayTraceResult) || !(world instanceof ClientWorld))
 			return false;
-		BlockPos pos = ((BlockRayTraceResult) target).getPos();
+		BlockPos pos = ((BlockRayTraceResult) target).getBlockPos();
 		WindowInABlockTileEntity te = getTileEntity(world, pos);
 		if (te != null) {
 			te.getWindowBlock().addHitEffects(world, target, manager);

@@ -30,8 +30,8 @@ public class WindowInABlockTileEntity extends TileEntity {
 	public static final ModelProperty<BlockState> WINDOW_BLOCK = new ModelProperty<>();
 	public static final ModelProperty<BlockPos> POSITION = new ModelProperty<>();
 	public static final ModelProperty<TileEntity> PARTIAL_TE = new ModelProperty<>();
-	private BlockState partialBlock = Blocks.AIR.getDefaultState();
-	private BlockState windowBlock = Blocks.AIR.getDefaultState();
+	private BlockState partialBlock = Blocks.AIR.defaultBlockState();
+	private BlockState windowBlock = Blocks.AIR.defaultBlockState();
 	private CompoundNBT partialBlockTileData;
 	private TileEntity partialBlockTileEntity = null;
 	@OnlyIn(Dist.CLIENT)
@@ -53,38 +53,37 @@ public class WindowInABlockTileEntity extends TileEntity {
 
 	@OnlyIn(value = Dist.CLIENT)
 	private void initDataMap() {
-		modelData = new ModelDataMap.Builder().withInitial(WINDOW_BLOCK, Blocks.AIR.getDefaultState())
-			.withInitial(PARTIAL_BLOCK, Blocks.AIR.getDefaultState()).withInitial(POSITION, BlockPos.ZERO).withInitial(PARTIAL_TE, null).build();
+		modelData = new ModelDataMap.Builder().withInitial(WINDOW_BLOCK, Blocks.AIR.defaultBlockState())
+			.withInitial(PARTIAL_BLOCK, Blocks.AIR.defaultBlockState()).withInitial(POSITION, BlockPos.ZERO).withInitial(PARTIAL_TE, null).build();
 	}
 
 
-
 	@Override
-	public void read(BlockState state, CompoundNBT compound) {
+	public void load(BlockState state, CompoundNBT compound) {
 		partialBlock = NBTUtil.readBlockState(compound.getCompound("PartialBlock"));
 		windowBlock = NBTUtil.readBlockState(compound.getCompound("WindowBlock"));
 		setPartialBlockTileData(compound.getCompound("PartialData"));
-		super.read(state, compound);
+		super.load(state, compound);
 	}
 
 	@Override
-	public CompoundNBT write(CompoundNBT compound) {
+	public CompoundNBT save(CompoundNBT compound) {
 		compound.put("PartialBlock", NBTUtil.writeBlockState(getPartialBlock()));
 		compound.put("WindowBlock", NBTUtil.writeBlockState(getWindowBlock()));
 		compound.put("PartialData", partialBlockTileData);
-		return super.write(compound);
+		return super.save(compound);
 	}
 
 	public void updateWindowConnections() {
-		if (world == null)
+		if (level == null)
 			return;
 		for (Direction side : Direction.values()) {
-			BlockPos offsetPos = pos.offset(side);
-			windowBlock = getWindowBlock().updatePostPlacement(side, world.getBlockState(offsetPos), world, pos,
+			BlockPos offsetPos = worldPosition.relative(side);
+			windowBlock = getWindowBlock().updateShape(side, level.getBlockState(offsetPos), level, worldPosition,
 				offsetPos);
 		}
-		world.notifyBlockUpdate(getPos(), getBlockState(), getBlockState(), 2 | 16);
-		markDirty();
+		level.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 2 | 16);
+		setChanged();
 	}
 
 	@OnlyIn(value = Dist.CLIENT)
@@ -92,7 +91,7 @@ public class WindowInABlockTileEntity extends TileEntity {
 	public IModelData getModelData() {
 		modelData.setData(PARTIAL_BLOCK, partialBlock);
 		modelData.setData(WINDOW_BLOCK, windowBlock);
-		modelData.setData(POSITION, pos);
+		modelData.setData(POSITION, worldPosition);
 		modelData.setData(PARTIAL_TE, getPartialBlockTileEntityIfPresent());
 		return modelData;
 	}
@@ -115,35 +114,35 @@ public class WindowInABlockTileEntity extends TileEntity {
 
 	@Override
 	public CompoundNBT getUpdateTag() {
-		return write(new CompoundNBT());
+		return save(new CompoundNBT());
 	}
 
 	@Override
 	public void handleUpdateTag(BlockState state, CompoundNBT tag) {
-		read(state, tag);
+		load(state, tag);
 	}
 
 	@Override
 	public SUpdateTileEntityPacket getUpdatePacket() {
-		return new SUpdateTileEntityPacket(getPos(), 1, write(new CompoundNBT()));
+		return new SUpdateTileEntityPacket(getBlockPos(), 1, save(new CompoundNBT()));
 	}
 
 	@Override
 	public void onDataPacket(NetworkManager net, SUpdateTileEntityPacket pkt) {
-		read(getBlockState(), pkt.getNbtCompound());
+		load(getBlockState(), pkt.getTag());
 	}
 
 	@Nullable
 	public TileEntity getPartialBlockTileEntityIfPresent() {
-		if (!getPartialBlock().hasTileEntity() || world == null)
+		if (!getPartialBlock().hasTileEntity() || level == null)
 			return null;
 		if (partialBlockTileEntity == null) {
 			try {
-				partialBlockTileEntity = getPartialBlock().createTileEntity(world);
+				partialBlockTileEntity = getPartialBlock().createTileEntity(level);
 				if (partialBlockTileEntity != null) {
-					partialBlockTileEntity.cachedBlockState = getPartialBlock();
+					partialBlockTileEntity.blockState = getPartialBlock();
 					partialBlockTileEntity.deserializeNBT(partialBlockTileData);
-					partialBlockTileEntity.setWorldAndPos(world, pos);
+					partialBlockTileEntity.setLevelAndPosition(level, worldPosition);
 				}
 			} catch (Exception e) {
 				partialBlockTileEntity = null;
@@ -163,12 +162,12 @@ public class WindowInABlockTileEntity extends TileEntity {
 
 	@OnlyIn(Dist.CLIENT)
 	private void requestModelUpdateOnClient() {
-		World world = this.world;
+		World world = this.level;
 		try {
-			this.world = Minecraft.getInstance().world;
+			this.level = Minecraft.getInstance().level;
 			super.requestModelDataUpdate();
 		} finally {
-			this.world = world;
+			this.level = world;
 		}
 	}
 }
