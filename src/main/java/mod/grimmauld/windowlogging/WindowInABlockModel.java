@@ -2,7 +2,6 @@ package mod.grimmauld.windowlogging;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
@@ -14,8 +13,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -31,11 +30,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import static mod.grimmauld.windowlogging.WindowInABlockTileEntity.*;
+import static mod.grimmauld.windowlogging.WindowInABlockTileEntity.WINDOWLOGGED_TE;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
+	private static final BlockRenderDispatcher DISPATCHER = Minecraft.getInstance().getBlockRenderer();
 
 	public WindowInABlockModel(BakedModel original) {
 		super(original);
@@ -69,29 +69,30 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 	@Override
 	@Nonnull
 	public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, Random rand, IModelData data) {
-		BlockRenderDispatcher dispatcher = Minecraft.getInstance().getBlockRenderer();
-		BlockState partialState = data.getData(PARTIAL_BLOCK);
-		BlockState windowState = data.getData(WINDOW_BLOCK);
-		BlockPos position = data.getData(POSITION);
-		BlockEntity partialTE = data.getData(PARTIAL_TE);
-		ClientLevel world = Minecraft.getInstance().level;
 		List<BakedQuad> quads = new ArrayList<>();
-		if (world == null || position == null)
+
+		WindowInABlockTileEntity windowInABlockTileEntity = data.getData(WINDOWLOGGED_TE);
+		if (windowInABlockTileEntity == null)
+			return quads;
+		BlockState partialState = windowInABlockTileEntity.getPartialBlock();
+		BlockState windowState = windowInABlockTileEntity.getWindowBlock();
+		BlockPos position = windowInABlockTileEntity.getBlockPos();
+		BlockEntity partialTE = windowInABlockTileEntity.getPartialBlockTileEntityIfPresent();
+		Level world = windowInABlockTileEntity.getLevel();
+		if (world == null)
 			return quads;
 
-		if (partialState == null || windowState == null)
-			return dispatcher.getBlockModel(Blocks.DIRT.defaultBlockState()).getQuads(state, side, rand, data);
-		RenderType renderType = MinecraftForgeClient.getRenderLayer();
+		RenderType renderType = MinecraftForgeClient.getRenderType();
 		if (ItemBlockRenderTypes.canRenderInLayer(partialState, renderType) && partialState.getRenderShape() == RenderShape.MODEL) {
-			BakedModel partialModel = dispatcher.getBlockModel(partialState);
+			BakedModel partialModel = DISPATCHER.getBlockModel(partialState);
 			IModelData modelData = partialModel.getModelData(world, position, partialState,
 				partialTE == null ? EmptyModelData.INSTANCE : partialTE.getModelData());
 			quads.addAll(partialModel.getQuads(partialState, side, rand, modelData));
 		}
 		if (ItemBlockRenderTypes.canRenderInLayer(windowState, renderType)) {
-			BakedModel windowModel = dispatcher.getBlockModel(windowState);
+			BakedModel windowModel = DISPATCHER.getBlockModel(windowState);
 			IModelData glassModelData = windowModel.getModelData(world, position, windowState, EmptyModelData.INSTANCE);
-			dispatcher.getBlockModel(windowState).getQuads(windowState, side, rand, glassModelData)
+			DISPATCHER.getBlockModel(windowState).getQuads(windowState, side, rand, glassModelData)
 				.forEach(bakedQuad -> {
 					if (!hasSolidSide(partialState, world, position, bakedQuad.getDirection())) {
 						fightZfighting(bakedQuad);
@@ -104,17 +105,18 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 
 	@Override
 	public TextureAtlasSprite getParticleIcon(IModelData data) {
-		BlockRenderDispatcher dispatcher = Minecraft.getInstance().getBlockRenderer();
-		BlockState partialState = data.getData(PARTIAL_BLOCK);
-		BlockEntity partialTE = data.getData(PARTIAL_TE);
-		if (partialState == null)
+		WindowInABlockTileEntity windowInABlockTileEntity = data.getData(WINDOWLOGGED_TE);
+		if (windowInABlockTileEntity == null)
 			return super.getParticleIcon(data);
-		return dispatcher.getBlockModel(partialState).getParticleIcon(partialTE == null ? data : partialTE.getModelData());
+
+		BlockState partialState = windowInABlockTileEntity.getPartialBlock();
+		BlockEntity partialTE = windowInABlockTileEntity.getPartialBlockTileEntityIfPresent();
+		return DISPATCHER.getBlockModel(partialState).getParticleIcon(partialTE == null ? data : partialTE.getModelData());
 	}
 
 	@Override
 	public boolean useAmbientOcclusion() {
-		RenderType renderLayer = MinecraftForgeClient.getRenderLayer();
+		RenderType renderLayer = MinecraftForgeClient.getRenderType();
 		return renderLayer == RenderType.solid();
 	}
 }

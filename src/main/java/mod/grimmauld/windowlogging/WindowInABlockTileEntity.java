@@ -6,7 +6,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
-import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -27,22 +26,17 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 public class WindowInABlockTileEntity extends BlockEntity {
-
-	public static final ModelProperty<BlockState> PARTIAL_BLOCK = new ModelProperty<>();
-	public static final ModelProperty<BlockState> WINDOW_BLOCK = new ModelProperty<>();
-	public static final ModelProperty<BlockPos> POSITION = new ModelProperty<>();
-	public static final ModelProperty<BlockEntity> PARTIAL_TE = new ModelProperty<>();
+	public static final ModelProperty<WindowInABlockTileEntity> WINDOWLOGGED_TE = new ModelProperty<>();
 	private BlockState partialBlock = Blocks.AIR.defaultBlockState();
 	private BlockState windowBlock = Blocks.AIR.defaultBlockState();
 	private CompoundTag partialBlockTileData;
 	private BlockEntity partialBlockTileEntity = null;
 	@OnlyIn(Dist.CLIENT)
-	private IModelData modelData;
+	private final IModelData modelData = new ModelDataMap.Builder().withInitial(WINDOWLOGGED_TE, this).build();
 
 	public WindowInABlockTileEntity(BlockPos pos, BlockState blockState) {
 		super(RegistryEntries.WINDOW_IN_A_BLOCK_TILE_ENTITY, pos, blockState);
 		setPartialBlockTileData(new CompoundTag());
-		DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::initDataMap);
 	}
 
 	public CompoundTag getPartialBlockTileData() {
@@ -53,27 +47,20 @@ public class WindowInABlockTileEntity extends BlockEntity {
 		this.partialBlockTileData = partialBlockTileData;
 	}
 
-	@OnlyIn(value = Dist.CLIENT)
-	private void initDataMap() {
-		modelData = new ModelDataMap.Builder().withInitial(WINDOW_BLOCK, Blocks.AIR.defaultBlockState())
-			.withInitial(PARTIAL_BLOCK, Blocks.AIR.defaultBlockState()).withInitial(POSITION, BlockPos.ZERO).withInitial(PARTIAL_TE, null).build();
-	}
-
-
 	@Override
 	public void load(CompoundTag compound) {
+		super.load(compound);
 		partialBlock = NbtUtils.readBlockState(compound.getCompound("PartialBlock"));
 		windowBlock = NbtUtils.readBlockState(compound.getCompound("WindowBlock"));
 		setPartialBlockTileData(compound.getCompound("PartialData"));
-		super.load(compound);
+		requestModelDataUpdate();
 	}
 
 	@Override
-	public CompoundTag save(CompoundTag compound) {
+	public void saveAdditional(CompoundTag compound) {
 		compound.put("PartialBlock", NbtUtils.writeBlockState(getPartialBlock()));
 		compound.put("WindowBlock", NbtUtils.writeBlockState(getWindowBlock()));
 		compound.put("PartialData", partialBlockTileData);
-		return super.save(compound);
 	}
 
 	public void updateWindowConnections() {
@@ -92,10 +79,6 @@ public class WindowInABlockTileEntity extends BlockEntity {
 	@Override
 	@Nonnull
 	public IModelData getModelData() {
-		modelData.setData(PARTIAL_BLOCK, partialBlock);
-		modelData.setData(WINDOW_BLOCK, windowBlock);
-		modelData.setData(POSITION, worldPosition);
-		modelData.setData(PARTIAL_TE, getPartialBlockTileEntityIfPresent());
 		return modelData;
 	}
 
@@ -117,22 +100,12 @@ public class WindowInABlockTileEntity extends BlockEntity {
 
 	@Override
 	public CompoundTag getUpdateTag() {
-		return save(new CompoundTag());
-	}
-
-	@Override
-	public void handleUpdateTag(CompoundTag tag) {
-		load(tag);
+		return saveWithoutMetadata();
 	}
 
 	@Override
 	public ClientboundBlockEntityDataPacket getUpdatePacket() {
-		return new ClientboundBlockEntityDataPacket(getBlockPos(), 1, save(new CompoundTag()));
-	}
-
-	@Override
-	public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt) {
-		load(pkt.getTag());
+		return ClientboundBlockEntityDataPacket.create(this);
 	}
 
 	@Nullable

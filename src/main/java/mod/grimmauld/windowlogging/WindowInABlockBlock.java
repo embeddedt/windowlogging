@@ -94,19 +94,19 @@ public class WindowInABlockBlock extends IronBarsBlock implements EntityBlock {
 	}
 
 	@Override
-	public boolean removedByPlayer(BlockState state, Level world, BlockPos pos, Player player,
+	public boolean onDestroyedByPlayer(BlockState state, Level world, BlockPos pos, Player player,
 								   boolean willHarvest, FluidState fluid) {
 
 		Vec3 start = player.getEyePosition(1);
 		AttributeInstance reachDistanceAttribute = player.getAttribute(ForgeMod.REACH_DISTANCE.get());
 		if (reachDistanceAttribute == null)
-			return super.removedByPlayer(state, world, pos, null, willHarvest, fluid);
+			return super.onDestroyedByPlayer(state, world, pos, null, willHarvest, fluid);
 		Vec3 end = start.add(player.getLookAngle().scale(reachDistanceAttribute.getValue()));
 		BlockHitResult target =
 			world.clip(new ClipContext(start, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
 		WindowInABlockTileEntity tileEntity = getTileEntity(world, pos);
 		if (tileEntity == null)
-			return super.removedByPlayer(state, world, pos, player, willHarvest, fluid);
+			return super.onDestroyedByPlayer(state, world, pos, player, willHarvest, fluid);
 		BlockState windowBlock = tileEntity.getWindowBlock();
 		CompoundTag partialBlockTileData = tileEntity.getPartialBlockTileData();
 		for (AABB bb : windowBlock.getShape(world, pos).toAabbs()) {
@@ -135,7 +135,7 @@ public class WindowInABlockBlock extends IronBarsBlock implements EntityBlock {
 			}
 		}
 
-		return super.removedByPlayer(state, world, pos, player, willHarvest, fluid);
+		return super.onDestroyedByPlayer(state, world, pos, player, willHarvest, fluid);
 	}
 
 	@Override
@@ -165,15 +165,15 @@ public class WindowInABlockBlock extends IronBarsBlock implements EntityBlock {
 	}
 
 	@Override
-	public ItemStack getPickBlock(BlockState state, HitResult target, BlockGetter world, BlockPos pos,
+	public ItemStack getCloneItemStack(BlockState state, HitResult target, BlockGetter world, BlockPos pos,
 								  Player player) {
 		BlockState window = getWindowBlockState(world, pos);
 		for (AABB bb : window.getShape(world, pos).toAabbs()) {
 			if (bb.inflate(.1d).contains(target.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ())))
-				return window.getPickBlock(target, world, pos, player);
+				return window.getCloneItemStack(target, world, pos, player);
 		}
 		BlockState surrounding = getSurroundingBlockState(world, pos);
-		return surrounding.getPickBlock(target, world, pos, player);
+		return surrounding.getCloneItemStack(target, world, pos, player);
 	}
 
 	@Override
