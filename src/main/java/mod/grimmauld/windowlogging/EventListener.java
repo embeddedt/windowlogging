@@ -33,21 +33,14 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Optional;
 
 @SuppressWarnings("unused")
 public class EventListener {
-	public static void clientInit(FMLClientSetupEvent event) {
-		registerRenderers();
-	}
-
 	@OnlyIn(Dist.CLIENT)
-	public static void registerRenderers() {
+	public static void clientInit(FMLClientSetupEvent event) {
 		ItemBlockRenderTypes.setRenderLayer(RegistryEntries.WINDOW_IN_A_BLOCK, renderType -> true);
 		BlockEntityRenderers.register(RegistryEntries.WINDOW_IN_A_BLOCK_TILE_ENTITY, WindowInABlockTileEntityRenderer::new);
 	}
@@ -55,39 +48,13 @@ public class EventListener {
 	@OnlyIn(Dist.CLIENT)
 	public static void onModelBake(ModelBakeEvent event) {
 		Map<ResourceLocation, BakedModel> modelRegistry = event.getModelRegistry();
-		swapModels(modelRegistry, getAllBlockStateModelLocations(RegistryEntries.WINDOW_IN_A_BLOCK), RegistryEntries.WINDOW_IN_A_BLOCK::createModel);
-	}
-
-	@OnlyIn(Dist.CLIENT)
-	protected static List<ModelResourceLocation> getAllBlockStateModelLocations(Block block) {
-		List<ModelResourceLocation> models = new ArrayList<>();
-		block.getStateDefinition().getPossibleStates().forEach(state -> {
-			ModelResourceLocation rl = getBlockModelLocation(block, BlockModelShaper.statePropertiesToString(state.getValues()));
-			if (rl != null)
-				models.add(rl);
-		});
-		return models;
-	}
-
-	@OnlyIn(Dist.CLIENT)
-	@Nullable
-	protected static ModelResourceLocation getBlockModelLocation(Block block, String suffix) {
-		ResourceLocation rl = block.getRegistryName();
-		if (rl == null)
-			return null;
-		return new ModelResourceLocation(rl, suffix);
-	}
-
-	@OnlyIn(Dist.CLIENT)
-	protected static <T extends BakedModel> void swapModels(Map<ResourceLocation, BakedModel> modelRegistry,
-															ModelResourceLocation location, Function<BakedModel, T> factory) {
-		modelRegistry.put(location, factory.apply(modelRegistry.get(location)));
-	}
-
-	@OnlyIn(Dist.CLIENT)
-	protected static <T extends BakedModel> void swapModels(Map<ResourceLocation, BakedModel> modelRegistry,
-															List<ModelResourceLocation> locations, Function<BakedModel, T> factory) {
-		locations.forEach(location -> swapModels(modelRegistry, location, factory));
+		RegistryEntries.WINDOW_IN_A_BLOCK.getStateDefinition()
+			.getPossibleStates()
+			.stream()
+			.map(state -> Optional.ofNullable(RegistryEntries.WINDOW_IN_A_BLOCK.getRegistryName())
+				.map(rl -> new ModelResourceLocation(rl, BlockModelShaper.statePropertiesToString(state.getValues()))))
+			.flatMap(Optional::stream)
+			.forEach(location -> modelRegistry.put(location, RegistryEntries.WINDOW_IN_A_BLOCK.createModel(modelRegistry.get(location))));
 	}
 
 	@SubscribeEvent

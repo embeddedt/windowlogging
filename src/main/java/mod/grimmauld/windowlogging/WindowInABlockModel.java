@@ -116,7 +116,6 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 
 	@Override
 	public boolean useAmbientOcclusion() {
-		RenderType renderLayer = MinecraftForgeClient.getRenderType();
-		return renderLayer == RenderType.solid();
+		return MinecraftForgeClient.getRenderType() == RenderType.solid();
 	}
 }

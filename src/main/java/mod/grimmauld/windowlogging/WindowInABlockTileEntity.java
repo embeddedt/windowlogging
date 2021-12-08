@@ -1,23 +1,18 @@
 package mod.grimmauld.windowlogging;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.model.data.IModelData;
 import net.minecraftforge.client.model.data.ModelDataMap;
 import net.minecraftforge.client.model.data.ModelProperty;
-import net.minecraftforge.fml.DistExecutor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -31,7 +26,6 @@ public class WindowInABlockTileEntity extends BlockEntity {
 	private BlockState windowBlock = Blocks.AIR.defaultBlockState();
 	private CompoundTag partialBlockTileData;
 	private BlockEntity partialBlockTileEntity = null;
-	@OnlyIn(Dist.CLIENT)
 	private final IModelData modelData = new ModelDataMap.Builder().withInitial(WINDOWLOGGED_TE, this).build();
 
 	public WindowInABlockTileEntity(BlockPos pos, BlockState blockState) {
@@ -75,7 +69,6 @@ public class WindowInABlockTileEntity extends BlockEntity {
 		setChanged();
 	}
 
-	@OnlyIn(value = Dist.CLIENT)
 	@Override
 	@Nonnull
 	public IModelData getModelData() {
@@ -125,25 +118,5 @@ public class WindowInABlockTileEntity extends BlockEntity {
 			}
 		}
 		return partialBlockTileEntity;
-	}
-
-	@Override
-	public void requestModelDataUpdate() {
-		try {
-			super.requestModelDataUpdate();
-		} catch (IllegalArgumentException e) {
-			DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> this::requestModelUpdateOnClient);
-		}
-	}
-
-	@OnlyIn(Dist.CLIENT)
-	private void requestModelUpdateOnClient() {
-		Level world = this.level;
-		try {
-			this.level = Minecraft.getInstance().level;
-			super.requestModelDataUpdate();
-		} finally {
-			this.level = world;
-		}
 	}
 }
