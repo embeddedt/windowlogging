@@ -85,14 +85,11 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 		RenderType renderType = MinecraftForgeClient.getRenderType();
 		if (ItemBlockRenderTypes.canRenderInLayer(partialState, renderType) && partialState.getRenderShape() == RenderShape.MODEL) {
 			BakedModel partialModel = DISPATCHER.getBlockModel(partialState);
-			IModelData modelData = partialModel.getModelData(world, position, partialState,
-				partialTE == null ? EmptyModelData.INSTANCE : partialTE.getModelData());
-			quads.addAll(partialModel.getQuads(partialState, side, rand, modelData));
+			quads.addAll(partialModel.getQuads(partialState, side, rand, partialModel.getModelData(world, position, partialState,
+				partialTE == null ? EmptyModelData.INSTANCE : partialTE.getModelData())));
 		}
 		if (ItemBlockRenderTypes.canRenderInLayer(windowState, renderType)) {
-			BakedModel windowModel = DISPATCHER.getBlockModel(windowState);
-			IModelData glassModelData = windowModel.getModelData(world, position, windowState, EmptyModelData.INSTANCE);
-			DISPATCHER.getBlockModel(windowState).getQuads(windowState, side, rand, glassModelData)
+			DISPATCHER.getBlockModel(windowState).getQuads(windowState, side, rand, DISPATCHER.getBlockModel(windowState).getModelData(world, position, windowState, EmptyModelData.INSTANCE))
 				.forEach(bakedQuad -> {
 					if (!hasSolidSide(partialState, world, position, bakedQuad.getDirection())) {
 						fightZfighting(bakedQuad);
@@ -109,9 +106,8 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 		if (windowInABlockTileEntity == null)
 			return super.getParticleIcon(data);
 
-		BlockState partialState = windowInABlockTileEntity.getPartialBlock();
 		BlockEntity partialTE = windowInABlockTileEntity.getPartialBlockTileEntityIfPresent();
-		return DISPATCHER.getBlockModel(partialState).getParticleIcon(partialTE == null ? data : partialTE.getModelData());
+		return DISPATCHER.getBlockModel(windowInABlockTileEntity.getPartialBlock()).getParticleIcon(partialTE == null ? data : partialTE.getModelData());
 	}
 
 	@Override

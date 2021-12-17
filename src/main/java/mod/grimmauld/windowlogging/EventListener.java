@@ -1,146 +1,73 @@
 package mod.grimmauld.windowlogging;
 
-import net.minecraft.client.renderer.ItemBlockRenderTypes;
-import net.minecraft.client.renderer.block.BlockModelShaper;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.CrossCollisionBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.WallBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.SlabType;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.client.event.ModelBakeEvent;
-import net.minecraftforge.client.event.ParticleFactoryRegisterEvent;
-import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
 
 @SuppressWarnings("unused")
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, modid = BuildConfig.MODID)
 public class EventListener {
-	@OnlyIn(Dist.CLIENT)
-	public static void clientInit(FMLClientSetupEvent event) {
-		ItemBlockRenderTypes.setRenderLayer(RegistryEntries.WINDOW_IN_A_BLOCK, renderType -> true);
-		BlockEntityRenderers.register(RegistryEntries.WINDOW_IN_A_BLOCK_TILE_ENTITY, WindowInABlockTileEntityRenderer::new);
-	}
-
-	@OnlyIn(Dist.CLIENT)
-	public static void onModelBake(ModelBakeEvent event) {
-		Map<ResourceLocation, BakedModel> modelRegistry = event.getModelRegistry();
-		RegistryEntries.WINDOW_IN_A_BLOCK.getStateDefinition()
-			.getPossibleStates()
-			.stream()
-			.map(state -> Optional.ofNullable(RegistryEntries.WINDOW_IN_A_BLOCK.getRegistryName())
-				.map(rl -> new ModelResourceLocation(rl, BlockModelShaper.statePropertiesToString(state.getValues()))))
-			.flatMap(Optional::stream)
-			.forEach(location -> modelRegistry.put(location, RegistryEntries.WINDOW_IN_A_BLOCK.createModel(modelRegistry.get(location))));
-	}
-
 	@SubscribeEvent
-	public void rightClickPartialBlockWithPaneMakesItWindowLogged(PlayerInteractEvent.RightClickBlock event) {
-		if (event.getUseItem() == Event.Result.DENY)
-			return;
-		if (event.getEntityLiving().isShiftKeyDown())
-			return;
-		if (!event.getPlayer().mayBuild())
-			return;
-
-		ItemStack stack = event.getItemStack();
-		if (stack.isEmpty())
-			return;
-		if (!(stack.getItem() instanceof BlockItem item))
-			return;
-		Block block = item.getBlock();
-		if (!block.getTags().contains(Windowlogging.WindowBlockTagLocation) || !(block instanceof CrossCollisionBlock)) {
-			return;
-		}
-
-		BlockPos pos = event.getPos();
-		Level world = event.getWorld();
-		BlockState blockState = world.getBlockState(pos);
-		if (!blockState.getBlock().getTags().contains(Windowlogging.WindowableBlockTagLocation))
-			return;
-		if (blockState.getBlock() instanceof WindowInABlockBlock)
-			return;
-		if (blockState.getOptionalValue(BlockStateProperties.SLAB_TYPE).orElse(null) == SlabType.DOUBLE)
-			return;
-
-		BlockState defaultState = RegistryEntries.WINDOW_IN_A_BLOCK.defaultBlockState();
-		CompoundTag partialBlockTileData = new CompoundTag();
-		BlockEntity currentTE = world.getBlockEntity(pos);
-		if (currentTE != null)
-			partialBlockTileData = currentTE.serializeNBT();
-		world.setBlockAndUpdate(pos, defaultState);
-		BlockEntity te = world.getBlockEntity(pos);
-		if (te instanceof WindowInABlockTileEntity wte) {
-			wte.setWindowBlock(item.getBlock().defaultBlockState());
-			wte.updateWindowConnections();
-			SoundType soundtype = wte.getWindowBlock().getSoundType(world, pos, event.getPlayer());
-			world.playSound(null, pos, soundtype.getPlaceSound(), SoundSource.BLOCKS, (soundtype.getVolume() + 1.0F) / 2.0F, soundtype.getPitch() * 0.8F);
-
-			if (blockState.getBlock() instanceof CrossCollisionBlock) {
-				for (BooleanProperty side : Arrays.asList(CrossCollisionBlock.EAST, CrossCollisionBlock.NORTH, CrossCollisionBlock.SOUTH,
-					CrossCollisionBlock.WEST))
-					blockState = blockState.setValue(side, false);
-			}
-			if (blockState.getBlock() instanceof WallBlock)
-				blockState = blockState.setValue(WallBlock.UP, true);
-
-			wte.setPartialBlock(blockState);
-			wte.setPartialBlockTileData(partialBlockTileData);
-			wte.requestModelDataUpdate();
-
-			if (!event.getPlayer().isCreative())
-				stack.shrink(1);
-			event.getPlayer().swing(event.getHand());
-		}
-
-		event.setCanceled(true);
+	public static void rightClickPartialBlockWithPaneMakesItWindowLogged(PlayerInteractEvent.RightClickBlock event) {
+		event.setCanceled(tryWindowlog(event.getUseItem(), event.getPlayer(), event.getItemStack(), event.getWorld(), event.getPos(), event.getHand()));
 	}
 
-	@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
-	public static class RegistryEvents {
-		private RegistryEvents() {
-		}
+	public static boolean tryWindowlog(Event.Result useItem, Player player, ItemStack stack, LevelAccessor level, BlockPos pos, InteractionHand hand) {
+		if (useItem == Event.Result.DENY || player.isShiftKeyDown() ||
+			!player.mayBuild() || stack.isEmpty() ||
+			!(stack.getItem() instanceof BlockItem item &&
+				item.getBlock() instanceof CrossCollisionBlock block && Windowlogging.WINDOW.contains(block)))
+			return false;
 
-		@SubscribeEvent
-		public static void registerBlocks(final RegistryEvent.Register<Block> event) {
-			Windowlogging.LOGGER.debug("blocks registering");
-			event.getRegistry().register(new WindowInABlockBlock().setRegistryName("window_in_a_block"));
-		}
+		BlockState blockState = level.getBlockState(pos);
+		if (!blockState.is(Windowlogging.WINDOWABLE) || blockState.getBlock() instanceof WindowInABlockBlock
+			|| blockState.getOptionalValue(BlockStateProperties.SLAB_TYPE).map(SlabType.DOUBLE::equals).orElse(false))
+			return false;
 
-		@SubscribeEvent
-		public static void registerTEs(final RegistryEvent.Register<BlockEntityType<?>> event) {
-			Windowlogging.LOGGER.debug("TEs registering");
-			event.getRegistry().register(BlockEntityType.Builder.of(WindowInABlockTileEntity::new, RegistryEntries.WINDOW_IN_A_BLOCK)
-				.build(null).setRegistryName("window_in_a_block"));
-		}
+		BlockEntity currentTE = level.getBlockEntity(pos);
+		level.setBlock(pos, DeferredRegistries.WINDOW_IN_A_BLOCK.get().defaultBlockState(), 3);
+		BlockEntity te = level.getBlockEntity(pos);
+		if (!(te instanceof WindowInABlockTileEntity wte))
+			return true;
+		wte.setWindowBlock(item.getBlock().defaultBlockState());
+		wte.updateWindowConnections();
+		SoundType soundtype = wte.getWindowBlock().getSoundType(level, pos, player);
+		level.playSound(null, pos, soundtype.getPlaceSound(), SoundSource.BLOCKS, (soundtype.getVolume() + 1.0F) / 2.0F, soundtype.getPitch() * 0.8F);
 
-		@OnlyIn(Dist.CLIENT)
-		@SubscribeEvent
-		public static void registerColorProviders(ParticleFactoryRegisterEvent event) {
-			WindowBlockColor.registerFor(RegistryEntries.WINDOW_IN_A_BLOCK);
+		if (blockState.getBlock() instanceof CrossCollisionBlock) {
+			for (BooleanProperty side : Arrays.asList(CrossCollisionBlock.EAST, CrossCollisionBlock.NORTH, CrossCollisionBlock.SOUTH,
+				CrossCollisionBlock.WEST))
+				blockState = blockState.setValue(side, false);
 		}
+		if (blockState.getBlock() instanceof WallBlock)
+			blockState = blockState.setValue(WallBlock.UP, true);
+
+		wte.setPartialBlock(blockState);
+		if (currentTE != null)
+			wte.setPartialBlockTileData(currentTE.serializeNBT());
+		wte.requestModelDataUpdate();
+
+		if (!player.isCreative())
+			stack.shrink(1);
+		player.swing(hand);
+		return true;
 	}
 }

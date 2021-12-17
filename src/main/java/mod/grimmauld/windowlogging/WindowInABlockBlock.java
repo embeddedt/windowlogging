@@ -5,7 +5,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.client.particle.TerrainParticle;
-import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -95,7 +94,7 @@ public class WindowInABlockBlock extends IronBarsBlock implements EntityBlock {
 
 	@Override
 	public boolean onDestroyedByPlayer(BlockState state, Level world, BlockPos pos, Player player,
-								   boolean willHarvest, FluidState fluid) {
+									   boolean willHarvest, FluidState fluid) {
 
 		Vec3 start = player.getEyePosition(1);
 		AttributeInstance reachDistanceAttribute = player.getAttribute(ForgeMod.REACH_DISTANCE.get());
@@ -166,7 +165,7 @@ public class WindowInABlockBlock extends IronBarsBlock implements EntityBlock {
 
 	@Override
 	public ItemStack getCloneItemStack(BlockState state, HitResult target, BlockGetter world, BlockPos pos,
-								  Player player) {
+									   Player player) {
 		BlockState window = getWindowBlockState(world, pos);
 		for (AABB bb : window.getShape(world, pos).toAabbs()) {
 			if (bb.inflate(.1d).contains(target.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ())))
@@ -240,7 +239,6 @@ public class WindowInABlockBlock extends IronBarsBlock implements EntityBlock {
 	}
 
 	@Override
-	@OnlyIn(Dist.CLIENT)
 	public boolean skipRendering(BlockState state, BlockState adjacentBlockState, Direction side) {
 		return false;
 	}
@@ -310,11 +308,6 @@ public class WindowInABlockBlock extends IronBarsBlock implements EntityBlock {
 				return false;
 			}
 		});
-	}
-
-	@OnlyIn(Dist.CLIENT)
-	public BakedModel createModel(BakedModel original) {
-		return new WindowInABlockModel(original);
 	}
 
 	@Override

@@ -22,14 +22,14 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 public class WindowInABlockTileEntity extends BlockEntity {
 	public static final ModelProperty<WindowInABlockTileEntity> WINDOWLOGGED_TE = new ModelProperty<>();
+	private final IModelData modelData = new ModelDataMap.Builder().withInitial(WINDOWLOGGED_TE, this).build();
 	private BlockState partialBlock = Blocks.AIR.defaultBlockState();
 	private BlockState windowBlock = Blocks.AIR.defaultBlockState();
-	private CompoundTag partialBlockTileData;
+	private CompoundTag partialBlockTileData = new CompoundTag();
 	private BlockEntity partialBlockTileEntity = null;
-	private final IModelData modelData = new ModelDataMap.Builder().withInitial(WINDOWLOGGED_TE, this).build();
 
 	public WindowInABlockTileEntity(BlockPos pos, BlockState blockState) {
-		super(RegistryEntries.WINDOW_IN_A_BLOCK_TILE_ENTITY, pos, blockState);
+		super(DeferredRegistries.WINDOW_IN_A_BLOCK_TILE_ENTITY.get(), pos, blockState);
 		setPartialBlockTileData(new CompoundTag());
 	}
 
