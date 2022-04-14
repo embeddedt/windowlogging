@@ -34,7 +34,8 @@ public class EventListener {
 		if (useItem == Event.Result.DENY || player.isShiftKeyDown() ||
 			!player.mayBuild() || stack.isEmpty() ||
 			!(stack.getItem() instanceof BlockItem item &&
-				item.getBlock() instanceof CrossCollisionBlock block && Windowlogging.WINDOW.contains(block)))
+				item.getBlock() instanceof CrossCollisionBlock block &&
+				block.defaultBlockState().is(Windowlogging.WINDOW)))
 			return false;
 
 		BlockState blockState = level.getBlockState(pos);
