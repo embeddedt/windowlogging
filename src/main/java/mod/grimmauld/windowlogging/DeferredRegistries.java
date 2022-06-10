@@ -4,7 +4,6 @@ import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -23,7 +22,6 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 @Mod.EventBusSubscriber(modid = BuildConfig.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
@@ -64,11 +62,9 @@ public class DeferredRegistries {
 	public static void onModelBake(ModelBakeEvent event) {
 		Map<ResourceLocation, BakedModel> modelRegistry = event.getModelRegistry();
 		DeferredRegistries.WINDOW_IN_A_BLOCK.get().getStateDefinition()
-			.getPossibleStates()
-			.stream()
-			.map(state -> Optional.ofNullable(DeferredRegistries.WINDOW_IN_A_BLOCK.get().getRegistryName())
-				.map(rl -> new ModelResourceLocation(rl, BlockModelShaper.statePropertiesToString(state.getValues()))))
-			.flatMap(Optional::stream)
+				.getPossibleStates()
+				.stream()
+				.map(BlockModelShaper::stateToModelLocation)
 			.forEach(location -> modelRegistry.put(location, new WindowInABlockModel(modelRegistry.get(location))));
 	}
 }

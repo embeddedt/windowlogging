@@ -12,6 +12,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -28,7 +29,6 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import static mod.grimmauld.windowlogging.WindowInABlockTileEntity.WINDOWLOGGED_TE;
 
@@ -68,7 +68,7 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 
 	@Override
 	@Nonnull
-	public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, Random rand, IModelData data) {
+	public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand, IModelData data) {
 		List<BakedQuad> quads = new ArrayList<>();
 
 		WindowInABlockTileEntity windowInABlockTileEntity = data.getData(WINDOWLOGGED_TE);
