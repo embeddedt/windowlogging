@@ -1,10 +1,12 @@
 buildscript {
     repositories {
         maven { url = 'https://files.minecraftforge.net/maven' }
+        maven { url = 'https://maven.parchmentmc.org' }
         mavenCentral()
     }
     dependencies {
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
+        classpath 'org.parchmentmc:librarian:1.+'
     }
 }
 
@@ -13,9 +15,10 @@ plugins {
     id "com.modrinth.minotaur" version "2.+"
 }
 apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
-apply from: 'https://gist.githubusercontent.com/LordGrimmauld/66f552c0d0bd50763098e92aa22a51df/raw/a4eb350252bdb76a570de110f55b4de19ac92ded/modconfig.gradle'
+apply from: 'https://raw.githubusercontent.com/LordGrimmauld/gitinfo-collect/master/build.gradle'
 
 version = "mc${minecraft_version}_v${mod_version}"
 group = "mod.grimmauld.${modid}"
@@ -25,6 +28,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
 
 minecraft {
+    // mappings channel: 'parchment', version: "2022.06.05-${minecraft_version}" // https://ldtteam.jfrog.io/ui/native/parchmentmc-public/org/parchmentmc/data/parchment-1.18.2/
     mappings channel: 'official', version: minecraft_version
     accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
 
@@ -103,9 +107,7 @@ jar.finalizedBy('reobfJar')
 buildConfig {
     buildConfigField 'String', 'MODID', "\"${modid}\""
     buildConfigField 'String', 'VERSION', "\"${project.version}\""
-    def gitstage = getGitInfo()
-    println("Using git stage ${gitstage}")
-    buildConfigField "String", "GITHASH", "\"${gitstage}\""
+    buildConfigField "String", "GITHASH", "\"${getGitInfo()}\""
 
     version = project.version
     packageName = project.group
