@@ -44,18 +44,18 @@ jobs:
         # Restoring these files from a GitHub Actions cache might cause problems for future builds.
         run: rm -f ~/.gradle/caches/modules-2/modules-2.lock & rm -f ~/.gradle/caches/modules-2/gc.properties
       - name: Upload to dscord
-          env:
-            DISCORD_WEBHOOK: ${{secrets.CI_DISCORD_WEBHOOK}}
-          run: |
-            if [[ -z "$DISCORD_WEBHOOK" ]]; then
-              echo "DISCORD_WEBHOOK env variable not set, skipping upload."
-              exit 0
-            fi
-            for f in build/libs/*.jar; do
-              echo "processing $f"
-              if [[ $f != *-slim.jar ]]; then
-                echo "uploading @$f"
-                curl -H 'Content-Type: multipart/form-data' -X POST -F "file=@$f" $DISCORD_WEBHOOK
-              fi
-            done
+        env:
+          DISCORD_WEBHOOK: ${{secrets.CI_DISCORD_WEBHOOK}}
+        run: |
+          if [[ -z "$DISCORD_WEBHOOK" ]]; then
+            echo "DISCORD_WEBHOOK env variable not set, skipping upload."
             exit 0
+          fi
+          for f in build/libs/*.jar; do
+            echo "processing $f"
+            if [[ $f != *-slim.jar ]]; then
+              echo "uploading @$f"
+              curl -H 'Content-Type: multipart/form-data' -X POST -F "file=@$f" $DISCORD_WEBHOOK
+            fi
+          done
+          exit 0
