@@ -12,8 +12,9 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.client.event.ModelBakeEvent;
-import net.minecraftforge.client.event.ParticleFactoryRegisterEvent;
+
+import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -28,7 +29,7 @@ import java.util.function.Supplier;
 
 @Mod.EventBusSubscriber(modid = BuildConfig.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class DeferredRegistries {
-	private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITIES, BuildConfig.MODID);
+	private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, BuildConfig.MODID);
 	private static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, BuildConfig.MODID);
 	public static final RegistryObject<WindowInABlockBlock> WINDOW_IN_A_BLOCK = registerBlock("window_in_a_block", WindowInABlockBlock::new);
 
@@ -55,18 +56,18 @@ public class DeferredRegistries {
 
 	@OnlyIn(Dist.CLIENT)
 	@SubscribeEvent
-	public static void registerColorProviders(ParticleFactoryRegisterEvent event) {
+	public static void registerColorProviders(RegisterParticleProvidersEvent event) {
 		WindowBlockColor.registerFor(DeferredRegistries.WINDOW_IN_A_BLOCK.get());
 	}
 
 	@OnlyIn(Dist.CLIENT)
 	@SubscribeEvent
-	public static void onModelBake(ModelBakeEvent event) {
-		Map<ResourceLocation, BakedModel> modelRegistry = event.getModelRegistry();
+	public static void onModelBake(ModelEvent.BakingCompleted event) {
+		Map<ResourceLocation, BakedModel> modelRegistry = event.getModels();
 		DeferredRegistries.WINDOW_IN_A_BLOCK.get().getStateDefinition()
 			.getPossibleStates()
 			.stream()
-			.map(state -> Optional.ofNullable(DeferredRegistries.WINDOW_IN_A_BLOCK.get().getRegistryName())
+			.map(state -> Optional.ofNullable(DeferredRegistries.WINDOW_IN_A_BLOCK.getId())
 				.map(rl -> new ModelResourceLocation(rl, BlockModelShaper.statePropertiesToString(state.getValues()))))
 			.flatMap(Optional::stream)
 			.forEach(location -> modelRegistry.put(location, new WindowInABlockModel(modelRegistry.get(location))));

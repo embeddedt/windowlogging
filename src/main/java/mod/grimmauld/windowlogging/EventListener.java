@@ -27,7 +27,7 @@ import java.util.Arrays;
 public class EventListener {
 	@SubscribeEvent
 	public static void rightClickPartialBlockWithPaneMakesItWindowLogged(PlayerInteractEvent.RightClickBlock event) {
-		event.setCanceled(tryWindowlog(event.getUseItem(), event.getPlayer(), event.getItemStack(), event.getWorld(), event.getPos(), event.getHand()));
+		event.setCanceled(tryWindowlog(event.getUseItem(), event.getEntity(), event.getItemStack(), event.getLevel(), event.getPos(), event.getHand()));
 	}
 
 	public static boolean tryWindowlog(Event.Result useItem, Player player, ItemStack stack, LevelAccessor level, BlockPos pos, InteractionHand hand) {

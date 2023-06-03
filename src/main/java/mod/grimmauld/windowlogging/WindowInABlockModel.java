@@ -2,7 +2,6 @@ package mod.grimmauld.windowlogging;
 
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
 import net.minecraft.client.renderer.block.model.BakedQuad;
@@ -12,23 +11,21 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.MinecraftForgeClient;
 import net.minecraftforge.client.model.BakedModelWrapper;
-import net.minecraftforge.client.model.data.EmptyModelData;
-import net.minecraftforge.client.model.data.IModelData;
+import net.minecraftforge.client.model.data.ModelData;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import static mod.grimmauld.windowlogging.WindowInABlockTileEntity.WINDOWLOGGED_TE;
 
@@ -68,10 +65,10 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 
 	@Override
 	@Nonnull
-	public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, Random rand, IModelData data) {
+	public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, @NotNull RandomSource rand, @NotNull ModelData data, @Nullable RenderType renderType) {
 		List<BakedQuad> quads = new ArrayList<>();
 
-		WindowInABlockTileEntity windowInABlockTileEntity = data.getData(WINDOWLOGGED_TE);
+		WindowInABlockTileEntity windowInABlockTileEntity = data.get(WINDOWLOGGED_TE);
 		if (windowInABlockTileEntity == null)
 			return quads;
 		BlockState partialState = windowInABlockTileEntity.getPartialBlock();
@@ -82,27 +79,26 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 		if (world == null)
 			return quads;
 
-		RenderType renderType = MinecraftForgeClient.getRenderType();
-		if (ItemBlockRenderTypes.canRenderInLayer(partialState, renderType) && partialState.getRenderShape() == RenderShape.MODEL) {
+		if (true) { // ItemBlockRenderTypes.canRenderInLayer(partialState, renderType) && partialState.getRenderShape() == RenderShape.MODEL) {
 			BakedModel partialModel = DISPATCHER.getBlockModel(partialState);
 			quads.addAll(partialModel.getQuads(partialState, side, rand, partialModel.getModelData(world, position, partialState,
-				partialTE == null ? EmptyModelData.INSTANCE : partialTE.getModelData())));
+					partialTE == null ? ModelData.EMPTY : partialTE.getModelData()), renderType));
 		}
-		if (ItemBlockRenderTypes.canRenderInLayer(windowState, renderType)) {
-			DISPATCHER.getBlockModel(windowState).getQuads(windowState, side, rand, DISPATCHER.getBlockModel(windowState).getModelData(world, position, windowState, EmptyModelData.INSTANCE))
-				.forEach(bakedQuad -> {
-					if (!hasSolidSide(partialState, world, position, bakedQuad.getDirection())) {
-						fightZfighting(bakedQuad);
-						quads.add(bakedQuad);
-					}
-				});
+		if (true) { // ItemBlockRenderTypes.canRenderInLayer(windowState, renderType)) {
+			DISPATCHER.getBlockModel(windowState).getQuads(windowState, side, rand, DISPATCHER.getBlockModel(windowState).getModelData(world, position, windowState, ModelData.EMPTY), renderType)
+					.forEach(bakedQuad -> {
+						if (!hasSolidSide(partialState, world, position, bakedQuad.getDirection())) {
+							fightZfighting(bakedQuad);
+							quads.add(bakedQuad);
+						}
+					});
 		}
 		return quads;
 	}
 
 	@Override
-	public TextureAtlasSprite getParticleIcon(IModelData data) {
-		WindowInABlockTileEntity windowInABlockTileEntity = data.getData(WINDOWLOGGED_TE);
+	public TextureAtlasSprite getParticleIcon(ModelData data) {
+		WindowInABlockTileEntity windowInABlockTileEntity = data.get(WINDOWLOGGED_TE);
 		if (windowInABlockTileEntity == null)
 			return super.getParticleIcon(data);
 
@@ -110,8 +106,9 @@ public class WindowInABlockModel extends BakedModelWrapper<BakedModel> {
 		return DISPATCHER.getBlockModel(windowInABlockTileEntity.getPartialBlock()).getParticleIcon(partialTE == null ? data : partialTE.getModelData());
 	}
 
+
 	@Override
-	public boolean useAmbientOcclusion() {
-		return MinecraftForgeClient.getRenderType() == RenderType.solid();
+	public boolean useAmbientOcclusion(BlockState state, RenderType renderType) {
+		return renderType == RenderType.solid();
 	}
 }

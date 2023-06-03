@@ -10,8 +10,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.client.model.data.IModelData;
-import net.minecraftforge.client.model.data.ModelDataMap;
+import net.minecraftforge.client.model.data.ModelData;
 import net.minecraftforge.client.model.data.ModelProperty;
 
 import javax.annotation.Nonnull;
@@ -22,7 +21,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 public class WindowInABlockTileEntity extends BlockEntity {
 	public static final ModelProperty<WindowInABlockTileEntity> WINDOWLOGGED_TE = new ModelProperty<>();
-	private final IModelData modelData = new ModelDataMap.Builder().withInitial(WINDOWLOGGED_TE, this).build();
+	private final ModelData modelData = ModelData.builder().with(WINDOWLOGGED_TE, this).build();
 	private BlockState partialBlock = Blocks.AIR.defaultBlockState();
 	private BlockState windowBlock = Blocks.AIR.defaultBlockState();
 	private CompoundTag partialBlockTileData = new CompoundTag();
@@ -71,7 +70,7 @@ public class WindowInABlockTileEntity extends BlockEntity {
 
 	@Override
 	@Nonnull
-	public IModelData getModelData() {
+	public ModelData getModelData() {
 		return modelData;
 	}
 
