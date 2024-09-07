@@ -1,6 +1,5 @@
 package mod.grimmauld.windowlogging;
 
-import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.block.BlockModelShaper;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.client.resources.model.BakedModel;
@@ -50,7 +49,6 @@ public class DeferredRegistries {
 	@OnlyIn(Dist.CLIENT)
 	@SubscribeEvent
 	public static void clientInit(FMLClientSetupEvent event) {
-		ItemBlockRenderTypes.setRenderLayer(WINDOW_IN_A_BLOCK.get(), renderType -> true);
 		BlockEntityRenderers.register(WINDOW_IN_A_BLOCK_TILE_ENTITY.get(), WindowInABlockTileEntityRenderer::new);
 	}
 
